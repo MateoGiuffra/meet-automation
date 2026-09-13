@@ -1,0 +1,24 @@
+{
+  "name": "meet-automation",
+  "version": "0.1.0",
+  "description": "Auto-join a Google Meet con mic/cámara apagados en una ventana horaria fija",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "playwright": "^1.63.0",
+    "winston": "^3.19.0"
+  }
+}
