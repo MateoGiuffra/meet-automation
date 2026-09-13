@@ -41,7 +41,7 @@ cuenta:
   (un solo punto de salida, ej. una función `leaveMeeting()`), no disperso.
 - **Exponer un patrón de comunicación browser→Node reutilizable.** `meeting-bot` ya resuelve esto
   para el caso de grabación con `page.exposeFunction`, ver
-  `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\bots\GoogleMeetBot.ts` líneas 666-671
+  `screenappai/meeting-bot\src\bots\GoogleMeetBot.ts` líneas 666-671
   (`screenAppSendData`) y 673-684 (`screenAppMeetEnd`). Etapa 2 va a usar el mismo patrón para: (a)
   mandar el texto de captions scrapeado desde `page.evaluate` hacia Node, y (b) exponer una función
   Node-side que el browser pueda invocar cuando el loop de Claude decida salir. Etapa 1 no necesita

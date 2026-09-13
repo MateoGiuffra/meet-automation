@@ -19,7 +19,7 @@ Antes de escribir código se evaluó si convenía partir de un proyecto open sou
 (extensiones de Chrome tipo just-meet/Google-Meet-Auto-Join, o frameworks de meeting-bot en
 TypeScript/Playwright) versus armar algo custom desde cero.
 
-**Hallazgo clave**: el repo de trabajo en `e:\proyectos\proyectos-2025\js-ts\meeting-bot` **ya es**
+**Hallazgo clave**: el repo de trabajo en `screenappai/meeting-bot` **ya es**
 `screenappai/meeting-bot` (remoto `https://github.com/screenappai/meeting-bot.git`), activamente
 mantenido — con commits del mismo mes en que se hizo esta evaluación (2026-09), 49 PRs mergeados,
 soporte multi-plataforma (Google Meet / Microsoft Teams / Zoom) vía Playwright + Redis. No hizo
@@ -38,11 +38,11 @@ sin grabar". Forkear el repo entero y tratar de "apagar" todo lo que no se neces
 API de ScreenApp) sería más trabajo y más frágil que extraer las ~2 piezas que sí sirven:
 
 1. **`createBrowserContext`** en
-   `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\lib\chromium.ts` — ya soporta lanzar Chrome
+   `screenappai/meeting-bot\src\lib\chromium.ts` — ya soporta lanzar Chrome
    con un perfil persistente clonado (`launchPersistentContext` + `GOOGLE_CHROME_USER_DATA_DIR`).
    Es exactamente el mecanismo pedido para Etapa 1.
 2. **La lógica de selectors de join** en
-   `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\bots\GoogleMeetBot.ts` — manejo de "Ask to
+   `screenappai/meeting-bot\src\bots\GoogleMeetBot.ts` — manejo de "Ask to
    join", espera en lobby, detección de admisión/rechazo, dismissal de modales "Got it". Es la
    parte más frágil de automatizar contra Meet (la UI cambia seguido) y ya está resuelta con
    reintentos y múltiples idiomas.

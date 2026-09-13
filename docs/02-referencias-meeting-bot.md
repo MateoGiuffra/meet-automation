@@ -1,6 +1,6 @@
 # Mapa de referencias a `meeting-bot`
 
-Repo base: `e:\proyectos\proyectos-2025\js-ts\meeting-bot` (remoto `screenappai/meeting-bot`).
+Repo base: `screenappai/meeting-bot` (remoto `screenappai/meeting-bot`).
 Todos los paths de abajo son absolutos dentro de ese repo. Los números de línea corresponden al
 commit `1447ed3` (2026-09, el HEAD de `main` al momento de este análisis) — si pasó tiempo y las
 líneas no coinciden, buscar por el nombre de función/símbolo indicado, no confiar ciegamente en el
@@ -8,7 +8,7 @@ número.
 
 ## 1. Lanzar Chrome con perfil clonado (la pieza central de Etapa 1)
 
-**Archivo**: `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\lib\chromium.ts`
+**Archivo**: `screenappai/meeting-bot\src\lib\chromium.ts`
 
 - `createBrowserContext(url, correlationId, botType)` — función completa, líneas 127-315. Es el
   punto de entrada a copiar/adaptar.
@@ -29,7 +29,7 @@ número.
   `headless: false` y se quiere un tamaño de ventana predecible.
 
 **Variables de entorno relevantes** en
-`e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\config.ts` (líneas 66-74):
+`screenappai/meeting-bot\src\config.ts` (líneas 66-74):
 
 ```
 chromeExecutablePath      ← CHROME_PATH (default '/usr/bin/google-chrome', en Windows hay que
@@ -43,7 +43,7 @@ googleChromeStorageStatePath ← GOOGLE_CHROME_STORAGE_STATE_PATH (no aplica si 
 
 ## 2. Lógica de join / selectors de Google Meet
 
-**Archivo**: `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\bots\GoogleMeetBot.ts`
+**Archivo**: `screenappai/meeting-bot\src\bots\GoogleMeetBot.ts`
 
 Reutilizar como **referencia de selectors y de la máquina de estados del join**, no copiar la clase
 entera (viene acoplada a `MeetBotBase`, `IUploader`, `patchBotStatus`, etc. que no aplican).
@@ -58,41 +58,41 @@ entera (viene acoplada a `MeetBotBase`, `IUploader`, `patchBotStatus`, etc. que 
   perfil clonado no está logueado correctamente.
 - Llenado de nombre + click en "Ask to join" con reintentos (líneas 194-282): la función
   `retryActionWithWait` que usa viene de
-  `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\util\resilience.ts` — copiar esa utilidad
+  `screenappai/meeting-bot\src\util\resilience.ts` — copiar esa utilidad
   también, es genérica y no tiene dependencias de ScreenApp.
 - Loop de espera en lobby / detección de admisión, rechazo o timeout (líneas 295-526): usa los
-  textos de `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\constants\index.ts`
+  textos de `screenappai/meeting-bot\src\constants\index.ts`
   (`GOOGLE_LOBBY_MODE_HOST_TEXT`, `GOOGLE_REQUEST_DENIED`, `GOOGLE_REQUEST_TIMEOUT`) — copiar esas
   constantes también.
 - Dismissal de modales "Got it" post-join (líneas 544-596) y de notificaciones de
   "Microphone/Camera not found" (líneas 598-640): copiar tal cual, son independientes del resto.
 - Nombre de display ajustado: `getGoogleMeetDisplayName` en
-  `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\util\googleMeetDisplayName.ts` — opcional,
+  `screenappai/meeting-bot\src\util\googleMeetDisplayName.ts` — opcional,
   solo si se quiere sanitizar el nombre que aparece en Meet.
 
 **NO copiar**: todo lo de grabación (`recordMeetingPage`, líneas 649-1288 — MediaRecorder,
 `exposeFunction('screenAppSendData', ...)`, `exposeFunction('screenAppMeetEnd', ...)`,
 inactivity/silence detection), ni el manejo de `IUploader`, ni las llamadas a `patchBotStatus`
-(`e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\services\botService.ts`, líneas 6-41 — nota:
+(`screenappai/meeting-bot\src\services\botService.ts`, líneas 6-41 — nota:
 esta función falla en silencio si no hay backend, así que si por error queda alguna referencia no
 rompe nada, pero no tiene sentido en este proyecto).
 
 ## 3. Errores custom (opcional, si se quiere mismo estilo)
 
-`e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\error.ts` define `WaitingAtLobbyRetryError`,
+`screenappai/meeting-bot\src\error.ts` define `WaitingAtLobbyRetryError`,
 `UnsupportedMeetingError`, `RecordingUploadFailedError`. Para Etapa 1 alcanza con
 `WaitingAtLobbyRetryError`/`UnsupportedMeetingError` si se quiere distinguir "no me dejaron entrar"
 de "el perfil no está logueado". No hace falta copiar el resto.
 
 ## 4. Tipos de referencia
 
-`e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\bots\AbstractMeetBot.ts` define `JoinParams` /
+`screenappai/meeting-bot\src\bots\AbstractMeetBot.ts` define `JoinParams` /
 `BotLaunchParams` — están acoplados a multi-tenant (`teamId`, `bearerToken`, `uploader`). Para
 Etapa 1 conviene un tipo propio y mínimo, ver el instructivo.
 
 ## 5. Ejemplo de script standalone ya existente
 
-`e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\test\debug.ts` (24 líneas) es el ejemplo más
+`screenappai/meeting-bot\src\test\debug.ts` (24 líneas) es el ejemplo más
 cercano a "usar `createBrowserContext` sin todo el aparato de jobs/Redis" que ya existe en el repo.
 Buen punto de partida como *forma* de script (no de contenido — este solo navega y saca un
 screenshot).

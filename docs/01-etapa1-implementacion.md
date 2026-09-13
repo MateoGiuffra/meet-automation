@@ -7,12 +7,12 @@
 - `pnpm init -y`, TypeScript + `ts-node` o `tsx` para correr sin compilar, `playwright` (no hace
   falta `playwright-extra` + stealth plugin salvo que Meet empiece a bloquear — evaluar si hace
   falta; `meeting-bot` lo usa en
-  `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\lib\chromium.ts` líneas 1-10, pero para un
+  `screenappai/meeting-bot\src\lib\chromium.ts` líneas 1-10, pero para un
   perfil real logueado del usuario, con historial y cookies reales, probablemente no se necesite
   fingerprint evasion).
 - No usar `playwright test` / `playwright.config.ts` — esto es un script de automatización, no una
   suite de tests.
-- Seguir las convenciones de `e:\proyectos\proyectos-2025\js-ts\meeting-bot\CLAUDE.MD` en lo que
+- Seguir las convenciones de `screenappai/meeting-bot\CLAUDE.MD` en lo que
   aplique a un proyecto standalone (TypeScript estricto, camelCase/PascalCase, early returns,
   logger en vez de `console.log` suelto, manejo de errores con clases custom si suma claridad) —
   no hace falta el resto (arquitectura de bots/servicios/colas, esa es para el otro repo).
@@ -28,14 +28,14 @@ variable de entorno.
 
 Verificar el clon: lanzar Chrome manualmente con `--user-data-dir=<clon>` y confirmar que la sesión
 de Google ya está logueada (si no lo está, `verifyItIsOnGoogleMeetPage` del repo de referencia,
-`e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\bots\GoogleMeetBot.ts` líneas 125-151, va a
+`screenappai/meeting-bot\src\bots\GoogleMeetBot.ts` líneas 125-151, va a
 detectar la página de sign-in — replicar esa detección para fallar con un mensaje claro en vez de
 colgarse).
 
 ## 2. Función de lanzamiento del browser
 
 Adaptar (no copiar 1:1) el bloque de perfil persistente de
-`e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\lib\chromium.ts` líneas 241-272:
+`screenappai/meeting-bot\src\lib\chromium.ts` líneas 241-272:
 
 - `chromium.launchPersistentContext(userDataDir, { headless: false, args: [...], ignoreDefaultArgs, executablePath })`.
 - Mantener `firstRunSuppressionArgs` (líneas 134-140 del archivo de referencia).
@@ -62,14 +62,14 @@ Esto no existe en `meeting-bot` — es la parte 100% nueva de este proyecto. Dis
 
 Referencia completa en
 [02-referencias-meeting-bot.md](02-referencias-meeting-bot.md#2-lógica-de-join--selectors-de-google-meet).
-Reutilizar de `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\bots\GoogleMeetBot.ts`:
+Reutilizar de `screenappai/meeting-bot\src\bots\GoogleMeetBot.ts`:
 
 1. `verifyItIsOnGoogleMeetPage` (líneas 125-151) — para detectar perfil no logueado y fallar claro.
 2. El llenado de nombre + click "Ask to join" con reintentos (líneas 194-282) — copiar junto con
    `retryActionWithWait` de
-   `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\util\resilience.ts`.
+   `screenappai/meeting-bot\src\util\resilience.ts`.
 3. El loop de espera en lobby (líneas 295-526) — copiar junto con las constantes de
-   `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\constants\index.ts`
+   `screenappai/meeting-bot\src\constants\index.ts`
    (`GOOGLE_LOBBY_MODE_HOST_TEXT`, `GOOGLE_REQUEST_DENIED`, `GOOGLE_REQUEST_TIMEOUT`).
 4. Dismissal de modales "Got it" (líneas 544-596).
 
@@ -85,7 +85,7 @@ join"), lo esperable es:
 - Dos botones toggle: uno de micrófono, uno de cámara (selectors típicos de Meet:
   `button[aria-label*="microphone" i]`, `button[aria-label*="camera" i]` — **verificar contra el
   Meet real al implementar**, la UI de Meet cambia seguido, tal como ya advierte
-  `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\bots\GoogleMeetBot.ts` con sus múltiples
+  `screenappai/meeting-bot\src\bots\GoogleMeetBot.ts` con sus múltiples
   variantes de selector).
 
 Pasos a implementar, **antes** de clickear "Ask to join":
@@ -108,7 +108,7 @@ Por pedido explícito: priorizar que Etapa 1 sea confiable (selectors robustos, 
 crashear silenciosamente) por sobre que sea elegante.
 
 - Logger estructurado (nivel mínimo: timestamp + mensaje + contexto), no `console.log` sueltos sin
-  contexto. `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\util\logger.ts` es un buen ejemplo
+  contexto. `screenappai/meeting-bot\src\util\logger.ts` es un buen ejemplo
   de forma (Winston) pero no hace falta copiar toda su config, alcanza con algo simple.
 - Cada paso crítico (perfil logueado, pantalla de Meet detectada, mic/cam confirmados apagados,
   "Ask to join" clickeado, admitido en la llamada) debe loggear explícitamente éxito o falla — no
@@ -118,7 +118,7 @@ crashear silenciosamente) por sobre que sea elegante.
   colgado ni fallar en silencio.
 - Capturar screenshot en disco (no upload, solo local) en los puntos de falla, para poder ver qué
   pasó sin tener que reproducir en vivo — inspirado en `uploadDebugImage` de
-  `e:\proyectos\proyectos-2025\js-ts\meeting-bot\src\services\bugService.ts`, pero guardando a
+  `screenappai/meeting-bot\src\services\bugService.ts`, pero guardando a
   disco local en vez de subir a GCP.
 
 ## 7. Qué NO hacer en esta etapa
