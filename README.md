@@ -103,6 +103,19 @@ El script:
 4. Una vez adentro, arranca el scraping de chat/captions y el monitor de fin de clase.
 5. Sale solo cuando detecta que la clase terminó (o con Ctrl+C).
 
+### Modo `--timed` (probar sin tocar la ventana horaria)
+
+Para probar el bot ya mismo sin editar `WINDOW_START_TIME`/`WINDOW_END_TIME`:
+
+```bash
+pnpm run start:timed                        # entra ya, sale sola a los 60s (default)
+pnpm run start:timed -- --duration=300000   # tope de 5 minutos (ms)
+```
+
+Ignora la ventana horaria y agrega un tope de tiempo máximo de conexión. Si en el medio un trigger
+dispara al juez LLM y este decide que hay que salir, sale antes igual — el tope es un techo, no
+reemplaza al monitor. Reutiliza el mismo flujo de join/scraping/juez/recorder que `pnpm start`.
+
 ## Estructura
 
 ```

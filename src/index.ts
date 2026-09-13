@@ -29,15 +29,38 @@ interface TranscriptLine {
   timestamp: number;
 }
 
+interface CliArgs {
+  /** --timed: ignora WINDOW_START_TIME/WINDOW_END_TIME, entra ya y sale sola a los durationMs. */
+  timed: boolean;
+  /** --duration=<ms>: tope de tiempo en modo timed. Default 60000 (1 minuto). */
+  durationMs: number;
+}
+
+function parseCliArgs(argv: string[]): CliArgs {
+  const timed = argv.includes('--timed');
+  const durationArg = argv.find((a) => a.startsWith('--duration='));
+  const parsed = durationArg ? Number(durationArg.slice('--duration='.length)) : NaN;
+  const durationMs = Number.isFinite(parsed) && parsed > 0 ? parsed : 60_000;
+  return { timed, durationMs };
+}
+
 async function main(): Promise<void> {
+  const cli = parseCliArgs(process.argv.slice(2));
+
   logger.info('=== meet-automation ===');
   logger.info('Configuración', {
     meetUrl: config.meetUrl,
-    window: `${config.windowStartTime} - ${config.windowEndTime}`,
+    window: cli.timed ? `timed (${Math.round(cli.durationMs / 1000)}s, ventana horaria ignorada)` : `${config.windowStartTime} - ${config.windowEndTime}`,
     displayName: config.meetDisplayName,
   });
 
-  await waitForWindowStart();
+  if (cli.timed) {
+    logger.info('Modo --timed activo: entra ya, sale sola al tope de tiempo salvo que el juez decida salir antes', {
+      durationMs: cli.durationMs,
+    });
+  } else {
+    await waitForWindowStart();
+  }
 
   const { context, page } = await launchBrowser();
 
@@ -176,6 +199,13 @@ async function main(): Promise<void> {
         });
       }
     };
+
+    if (cli.timed) {
+      const maxDurationTimer = setTimeout(() => {
+        void exitFlow(`Tope de tiempo del modo --timed alcanzado (${Math.round(cli.durationMs / 1000)}s)`);
+      }, cli.durationMs);
+      timers.push(maxDurationTimer);
+    }
 
     // ── Captions scraping ─────────────────────────────────────────────
     const captionCallback = (event: CaptionEvent) => {

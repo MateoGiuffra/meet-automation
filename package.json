@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
+    "start:timed": "tsx src/index.ts --timed",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
