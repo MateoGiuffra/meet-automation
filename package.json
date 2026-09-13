@@ -6,6 +6,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "start:timed": "tsx src/index.ts --timed",
+    "smoke-test": "tsx src/smoketest.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit"
   },
@@ -20,6 +21,8 @@
   "dependencies": {
     "dotenv": "^17.4.2",
     "playwright": "^1.63.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "winston": "^3.19.0"
   }
 }

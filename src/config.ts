@@ -49,6 +49,15 @@ export const config = {
 
   chromePath: requireEnv('CHROME_PATH'),
   chromeUserDataDir: requireEnv('CHROME_USER_DATA_DIR'),
+  // Subcarpeta de perfil dentro de chromeUserDataDir (ej. "Default", "Profile 1").
+  // Ver qué carpeta corresponde a qué cuenta en Local State → profile.info_cache.
+  chromeProfileDirectory: optionalEnv('CHROME_PROFILE_DIRECTORY', 'Default'),
+  // Puerto de debugging para conectar Playwright vía CDP a un Chrome lanzado
+  // por nosotros mismos (no por Playwright) — ver browser.ts.
+  chromeDebugPort: optionalNumber('CHROME_DEBUG_PORT', 9333),
+  // Fuerza el idioma de Chrome/Meet — evita tener que mantener traducciones
+  // de cada texto de la UI para cada idioma posible del perfil.
+  chromeLanguage: optionalEnv('CHROME_LANGUAGE', 'en-US'),
 
   browserWidth: optionalNumber('BROWSER_WIDTH', 1280),
   browserHeight: optionalNumber('BROWSER_HEIGHT', 720),
@@ -92,5 +101,9 @@ export const config = {
 
     // Directorio donde se guardan los JSON de sesión.
     sessionsDir: optionalEnv('SESSIONS_DIR', './logs/sessions'),
+
+    // Directorio de perfiles por meet (uno por MEET_URL, archivo auto-ajustable
+    // con el promedio de participantes observado — ver meetProfile.ts).
+    meetProfilesDir: optionalEnv('MEET_PROFILES_DIR', './data/meet-profiles'),
   },
 };

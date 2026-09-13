@@ -4,6 +4,7 @@ import { getLogger } from '../logger.js';
 import {
   CAPTION_REGION_SELECTOR,
   CAPTION_REGION_SELECTOR_DE,
+  CAPTION_REGION_SELECTOR_ES,
   CAPTION_TOGGLE_LABELS,
 } from './constants.js';
 import type { CaptionCallback } from './types.js';
@@ -43,7 +44,7 @@ export async function enableCaptions(page: Page): Promise<boolean> {
       await page.waitForTimeout(500);
 
       // Verify the caption region appeared
-      const regionSelector = `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}`;
+      const regionSelector = `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}, ${CAPTION_REGION_SELECTOR_ES}`;
       const regionVisible = await page
         .locator(regionSelector)
         .first()
@@ -62,7 +63,7 @@ export async function enableCaptions(page: Page): Promise<boolean> {
   }
 
   // Check if captions are already on (region already present)
-  const regionSelector = `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}`;
+  const regionSelector = `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}, ${CAPTION_REGION_SELECTOR_ES}`;
   const alreadyActive = await page
     .locator(regionSelector)
     .first()
@@ -82,7 +83,7 @@ export async function enableCaptions(page: Page): Promise<boolean> {
  * Check if the caption region is visible in the DOM.
  */
 export async function isCaptionsActive(page: Page): Promise<boolean> {
-  const regionSelector = `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}`;
+  const regionSelector = `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}, ${CAPTION_REGION_SELECTOR_ES}`;
   return page
     .locator(regionSelector)
     .first()
@@ -115,6 +116,16 @@ export async function setupCaptionScraper(page: Page, callback: CaptionCallback)
   // 2. Inject the MutationObserver script into the browser
   await page.evaluate(
     ({ regionSelector, bridgeName, secret }) => {
+      // tsx corre con esbuild `keepNames: true` fijo — envuelve toda función
+      // nombrada (const arrow o `function`) con `__name(fn, "x")`, un helper
+      // que vive en el scope del módulo de Node. Se pierde al serializar este
+      // callback para el browser vía page.evaluate() y revienta con
+      // "ReferenceError: __name is not defined". Un `const __name = ...`
+      // local NO alcanza — esbuild detecta la colisión con su propio helper y
+      // lo renombra. Esta asignación de PROPIEDAD (no es una declaración
+      // léxica) esquiva esa renombrada y satisface el identificador bare
+      // `__name` en runtime vía la scope chain del global object.
+      (window as any).__name = (fn: unknown) => fn;
       // Guard: avoid duplicate injection
       if ((window as any).__meetCaptionObserverActive) return;
       (window as any).__meetCaptionObserverActive = true;
@@ -184,7 +195,7 @@ export async function setupCaptionScraper(page: Page, callback: CaptionCallback)
       console.log('[meet-automation] Caption MutationObserver active');
     },
     {
-      regionSelector: `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}`,
+      regionSelector: `${CAPTION_REGION_SELECTOR}, ${CAPTION_REGION_SELECTOR_DE}, ${CAPTION_REGION_SELECTOR_ES}`,
       bridgeName: BROWSER_BRIDGE_NAME,
       secret: BRIDGE_SECRET,
     },

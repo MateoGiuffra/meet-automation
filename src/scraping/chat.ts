@@ -10,10 +10,26 @@ const BRIDGE_SECRET = randomBytes(16).toString('hex');
 
 let observerActive = false;
 
+// tsx corre con esbuild `keepNames: true` fijo (no hay flag para desactivarlo).
+// Eso envuelve TODA función nombrada (const arrow o `function`) dentro de un
+// callback con `__name(fn, "nombre")`, un helper que esbuild hoistea al scope
+// del MÓDULO de Node — no viaja con `Function.prototype.toString()`. En cuanto
+// `page.evaluate()` serializa el callback para el browser, esas llamadas a
+// `__name(...)` revientan con "ReferenceError: __name is not defined".
+// Declarar un `const __name = ...` local NO alcanza: esbuild detecta la
+// colisión con su propio helper y renombra la mía a `__name2`, dejando las
+// llamadas inyectadas apuntando igual al `__name` de afuera. La asignación de
+// PROPIEDAD de abajo esquiva eso — no es una declaración léxica, así que
+// esbuild la deja intacta, y en runtime el browser resuelve el identificador
+// bare `__name` contra `window.__name` (el global object es la base de la
+// scope chain). Poner esta línea al principio de cada evaluate() que declare
+// algún helper nombrado.
 // ── Chat panel detection ────────────────────────────────────────────────
 
 async function isChatPanelOpen(page: Page): Promise<boolean> {
   return page.evaluate(() => {
+    (window as any).__name = (fn: unknown) => fn;
+
     const normalize = (t: string) => (t || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const isVisible = (node: Element) => {
       if (!node) return false;
@@ -56,6 +72,8 @@ async function isChatPanelOpen(page: Page): Promise<boolean> {
 
 async function clickChatButton(page: Page): Promise<boolean> {
   return page.evaluate(() => {
+    (window as any).__name = (fn: unknown) => fn;
+
     const normalize = (t: string) => (t || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const isVisible = (node: Element) => {
       if (!node) return false;
@@ -135,6 +153,8 @@ export async function openChatPanel(page: Page): Promise<boolean> {
 
 async function collectVisibleMessages(page: Page): Promise<Array<{ author: string; text: string; fingerprint: string }>> {
   return page.evaluate(() => {
+    (window as any).__name = (fn: unknown) => fn;
+
     const normalize = (t: string) => (t || '').replace(/\s+/g, ' ').trim();
     const isVisible = (node: Element) => {
       if (!node) return false;
@@ -228,6 +248,8 @@ export async function setupChatScraper(page: Page, callback: ChatCallback): Prom
   // Inject MutationObserver
   await page.evaluate(
     ({ bridgeName, existingFps }) => {
+      (window as any).__name = (fn: unknown) => fn;
+
       if ((window as any).__meetChatObserverActive) return;
       (window as any).__meetChatObserverActive = true;
 
@@ -311,6 +333,9 @@ export async function setupChatScraper(page: Page, callback: ChatCallback): Prom
   logger.info('Chat scraper initialized');
 }
 
+/**
+ * Stop the MutationObserver and disconnect the bridge.
+ */
 export async function stopChatScraper(page: Page): Promise<void> {
   if (!observerActive) return;
 
@@ -323,7 +348,6 @@ export async function stopChatScraper(page: Page): Promise<void> {
       }
       delete (window as any).__meetChatObserver;
       delete (window as any).__meetChatObserverActive;
-      delete (window as any).__meetChatBridge;
     });
   } catch {
     // page might be closed
@@ -334,7 +358,19 @@ export async function stopChatScraper(page: Page): Promise<void> {
 }
 
 /**
- * Convenience: open chat + start scraping in one call.
+ * Re-attach the MutationObserver after the chat panel's DOM node got replaced
+ * (ej. porque checkProfessorPresence abrió el panel People, que ocupa el
+ * mismo slot lateral). El observer viejo queda apuntando a un nodo
+ * desmontado — hay que reiniciarlo contra el chat container nuevo.
+ */
+export async function restartChatScraper(page: Page, callback: ChatCallback): Promise<void> {
+  await stopChatScraper(page);
+  await setupChatScraper(page, callback);
+}
+
+/**
+ * Convenience: open the chat panel + start scraping in one call.
+ * Returns true if scraping was set up successfully.
  */
 export async function startChatScraping(page: Page, callback: ChatCallback): Promise<boolean> {
   const opened = await openChatPanel(page);
@@ -345,16 +381,4 @@ export async function startChatScraping(page: Page, callback: ChatCallback): Pro
 
   await setupChatScraper(page, callback);
   return true;
-}
-
-/**
- * Re-abre el panel de chat y re-instala el MutationObserver.
- *
- * Necesario después de que algo (ej. `checkProfessorPresence`) haya abierto
- * el panel People, que reemplaza el nodo del contenedor de chat en el DOM —
- * el observer anterior queda apuntando a un nodo desmontado.
- */
-export async function restartChatScraper(page: Page, callback: ChatCallback): Promise<boolean> {
-  await stopChatScraper(page);
-  return startChatScraping(page, callback);
 }

@@ -2,6 +2,7 @@ import { Page } from 'playwright';
 import { getLogger } from '../logger.js';
 import {
   PEOPLE_BUTTON_SELECTOR,
+  PEOPLE_BUTTON_TEXT_PREFIXES,
   PEOPLE_PANEL_SELECTOR,
   PEOPLE_LIST_ITEM_SELECTOR,
 } from './constants.js';
@@ -9,11 +10,38 @@ import {
 const logger = getLogger('scraping/participants');
 
 /**
- * Lee el conteo de participantes del badge del botón "People (N)".
- * No requiere abrir el panel — seguro de sondear seguido.
+ * Ubica el botón/ícono de participantes por texto (ej. "Personas2"), no por
+ * aria-label — la versión actual de Meet lo renderiza como un
+ * `<div role="button">` sin aria-label, con el label y el conteo pegados en
+ * el textContent. `PEOPLE_BUTTON_SELECTOR` (aria-label) queda como fallback
+ * de una sola pasada por si alguna variante de Meet sí lo expone así.
+ */
+async function findPeopleButtonText(page: Page): Promise<string | null> {
+  return page.evaluate((prefixes) => {
+    const candidates = Array.from(document.querySelectorAll('[role="button"]'));
+    for (const el of candidates) {
+      const text = (el.textContent || '').trim();
+      for (const prefix of prefixes) {
+        if (text.toLowerCase().startsWith(prefix.toLowerCase())) return text;
+      }
+    }
+    return null;
+  }, PEOPLE_BUTTON_TEXT_PREFIXES);
+}
+
+/**
+ * Lee el conteo de participantes del badge del botón de personas (ej.
+ * "Personas2" → 2). No requiere abrir el panel — seguro de sondear seguido.
  */
 export async function getParticipantCount(page: Page): Promise<number | null> {
   try {
+    const text = await findPeopleButtonText(page);
+    if (text) {
+      const match = text.match(/(\d+)\s*$/);
+      if (match) return Number(match[1]);
+    }
+
+    // Fallback: aria-label con formato "People (N)".
     const label = await page.locator(PEOPLE_BUTTON_SELECTOR).first().getAttribute('aria-label');
     if (!label) return null;
     const match = label.match(/\((\d+)\)/);
@@ -32,18 +60,19 @@ async function isPeoplePanelOpen(page: Page): Promise<boolean> {
     .catch(() => false);
 }
 
+// `PEOPLE_PANEL_SELECTOR` ahora apunta al buscador de adentro del panel (ver
+// constants.ts) — no es un contenedor con hijos, así que no sirve para
+// scopear el querySelectorAll de la lista. Con el panel ya confirmado
+// abierto (isPeoplePanelOpen), basta con buscar los listitem en todo el
+// documento: no hay otro `[role="listitem"]` compitiendo en pantalla mientras
+// este panel está abierto.
 async function readParticipantNames(page: Page): Promise<string[]> {
-  return page.evaluate(
-    ({ panelSelector, itemSelector }) => {
-      const panel = document.querySelector(panelSelector);
-      if (!panel) return [];
-      const items = Array.from(panel.querySelectorAll(itemSelector));
-      return items
-        .map((item) => (item.textContent || '').replace(/\s+/g, ' ').trim())
-        .filter(Boolean);
-    },
-    { panelSelector: PEOPLE_PANEL_SELECTOR, itemSelector: PEOPLE_LIST_ITEM_SELECTOR },
-  );
+  return page.evaluate((itemSelector) => {
+    const items = Array.from(document.querySelectorAll(itemSelector));
+    return items
+      .map((item) => (item.textContent || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+  }, PEOPLE_LIST_ITEM_SELECTOR);
 }
 
 /**
@@ -72,7 +101,19 @@ export async function checkProfessorPresence(
   try {
     const alreadyOpen = await isPeoplePanelOpen(page);
     if (!alreadyOpen) {
-      await page.locator(PEOPLE_BUTTON_SELECTOR).first().click({ timeout: 3000 });
+      // `force: true` porque el botón de Personas dispara un tooltip/ripple al
+      // hacer hover que Playwright interpreta como "elemento inestable" y
+      // aborta el click esperando que se asiente — nunca lo hace del todo.
+      const text = await findPeopleButtonText(page);
+      if (text) {
+        await page
+          .locator('[role="button"]')
+          .filter({ hasText: text })
+          .first()
+          .click({ timeout: 3000, force: true });
+      } else {
+        await page.locator(PEOPLE_BUTTON_SELECTOR).first().click({ timeout: 3000, force: true });
+      }
       await page.waitForTimeout(400);
     }
 

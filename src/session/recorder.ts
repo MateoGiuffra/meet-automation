@@ -1,9 +1,33 @@
 import { mkdir, writeFile, appendFile } from 'fs/promises';
 import { join } from 'path';
+import { config } from '../config.js';
 import { getLogger } from '../logger.js';
 import type { TriggerEvent, JudgeInvocation } from '../monitor/types.js';
 
 const logger = getLogger('session/recorder');
+
+/**
+ * ISO 8601 con el offset de `config.tz` en vez de "Z" (UTC) — `toISOString()`
+ * siempre da UTC sin importar el reloj del sistema, así que un joinedAt a las
+ * 15hs ART aparecía como "18:00:47.992Z" en el JSON, confuso para leer a mano.
+ * Sigue siendo un timestamp válido/parseable, solo con el offset correcto.
+ */
+function formatInTz(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZoneName: 'longOffset',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const offset = get('timeZoneName').replace('GMT', '') || '+00:00';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}${offset}`;
+}
 
 export interface SessionSummary {
   sessionId: string;
@@ -41,7 +65,7 @@ export class SessionRecorder {
     this.summary = {
       sessionId: this.sessionId,
       meetUrl,
-      joinedAt: new Date().toISOString(),
+      joinedAt: formatInTz(new Date(), config.tz),
       leftAt: null,
       exitReason: null,
       triggers: [],
@@ -95,7 +119,7 @@ export class SessionRecorder {
   }
 
   async finish(exitReason: string, participantsAtLeave: number | null): Promise<void> {
-    this.summary.leftAt = new Date().toISOString();
+    this.summary.leftAt = formatInTz(new Date(), config.tz);
     this.summary.exitReason = exitReason;
     this.summary.participants.atLeave = participantsAtLeave;
     await this.ready;

@@ -22,6 +22,10 @@ Tené en cuenta:
 - Si estamos cerca o pasado el horario de fin agendado, la barra para decidir "salir" baja.
 - Si el conteo de participantes cayó fuerte y de forma sostenida (no solo 1-2 personas),
   es una señal fuerte de que la clase terminó.
+- Si te paso el promedio histórico de participantes de esta clase (de sesiones anteriores),
+  usalo para calibrar qué tan fuerte es una caída: perder 3 personas en una clase que
+  normalmente tiene 4 es clase terminada; perder 3 en una que normalmente tiene 25 no.
+  Nunca es la ÚNICA razón para decidir, pero ayuda a interpretar el resto de las señales.
 
 Respondé EXCLUSIVAMENTE con un JSON de una línea, sin texto adicional, con este formato exacto:
 {"leave": boolean, "confidence": number entre 0 y 1, "reason": "explicación breve en español"}`;
@@ -42,6 +46,11 @@ export function buildJudgeUserPrompt(ctx: JudgeContext): string {
   lines.push(`Participantes máximo visto: ${ctx.participantsMax}`);
   lines.push(`Participantes mínimo visto: ${ctx.participantsMin}`);
   lines.push(`Participantes ahora: ${ctx.participantsNow ?? 'desconocido'}`);
+  lines.push(
+    ctx.averageParticipants !== null
+      ? `Promedio histórico de esta clase: ${ctx.averageParticipants} (de ${ctx.averageParticipantsSampleCount} sesión/es anteriores)`
+      : 'Promedio histórico de esta clase: sin dato (primera vez que se corre este meet)',
+  );
   lines.push(
     ctx.professorAbsentForMs !== null
       ? `Profesor ausente hace: ${Math.round(ctx.professorAbsentForMs / 1000)}s`

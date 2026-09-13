@@ -1,6 +1,6 @@
 import { config } from './config.js';
 import { getLogger } from './logger.js';
-import { launchBrowser } from './browser.js';
+import { launchBrowser, closeBrowserGracefully } from './browser.js';
 import { joinMeet, leaveMeeting } from './meet.js';
 import { waitForWindowStart, minutesUntilScheduledEnd } from './scheduler.js';
 import { MeetAutomationError } from './errors.js';
@@ -21,6 +21,8 @@ import { SessionRecorder } from './session/recorder.js';
 import { createLlm } from './llm/index.js';
 import { askJudge } from './judge/judge.js';
 import type { JudgeContext } from './judge/types.js';
+import { runSmokeTest } from './smoketest.js';
+import { loadMeetProfile, recordParticipantSample } from './meetProfile.js';
 
 const logger = getLogger('main');
 
@@ -58,7 +60,17 @@ async function main(): Promise<void> {
     logger.info('Modo --timed activo: entra ya, sale sola al tope de tiempo salvo que el juez decida salir antes', {
       durationMs: cli.durationMs,
     });
-  } else {
+  }
+
+  // Siempre corre antes de tocar Chrome/Meet — así una config rota (ej. modelo
+  // de LLM inexistente) se detecta en segundos, no 20 minutos después en medio
+  // de una clase real cuando dispara el primer trigger.
+  const smokeOk = await runSmokeTest();
+  if (!smokeOk) {
+    process.exit(1);
+  }
+
+  if (!cli.timed) {
     await waitForWindowStart();
   }
 
@@ -76,11 +88,13 @@ async function main(): Promise<void> {
     } catch {
       // ignore
     }
-    try {
-      await context.close();
-    } catch {
-      // ignore
-    }
+    // Clickear "Leave call" antes de cerrar el browser — si esto no corre (ej. el
+    // browser se mata a la fuerza), Google Meet sigue considerando del lado del
+    // servidor que esa sesión está en la llamada. La siguiente corrida, con el
+    // mismo perfil, se encuentra con "Tu llamada de Meet está en otra ventana" en
+    // vez de la UI real, porque para Meet técnicamente seguís ahí.
+    await leaveMeeting(page).catch(() => {});
+    await closeBrowserGracefully(context);
   };
 
   process.on('SIGINT', async () => {
@@ -105,6 +119,10 @@ async function main(): Promise<void> {
 
     const initialCount = (await getParticipantCount(page)) ?? 0;
     const recorder = new SessionRecorder(config.monitor.sessionsDir, config.meetUrl, initialCount);
+    const meetProfile = await loadMeetProfile(config.meetUrl, config.monitor.meetProfilesDir, {
+      windowStartTime: config.windowStartTime,
+      windowEndTime: config.windowEndTime,
+    });
     const monitor = new ClassEndMonitor({
       participantDropPct: config.monitor.participantDropPct,
       participantDropAbsolute: config.monitor.participantDropAbsolute,
@@ -139,7 +157,12 @@ async function main(): Promise<void> {
       }
       await leaveMeeting(page);
       await recorder.finish(reason, lastKnownCount);
-      await context.close();
+      try {
+        await recordParticipantSample(meetProfile, config.monitor.meetProfilesDir, monitor.getStats().max);
+      } catch (err) {
+        logger.warn('No se pudo actualizar el perfil de meet con esta sesión', { error: err });
+      }
+      await closeBrowserGracefully(context);
       process.exit(0);
     };
 
@@ -174,6 +197,8 @@ async function main(): Promise<void> {
             return null;
           }
         })(),
+        averageParticipants: meetProfile.sampleCount > 0 ? meetProfile.averageParticipants : null,
+        averageParticipantsSampleCount: meetProfile.sampleCount,
       };
 
       const startedAt = Date.now();
@@ -246,6 +271,16 @@ async function main(): Promise<void> {
       // Solo si antes vimos más de 1 persona (evita falso positivo justo al joinear).
       if (count <= 1 && stats.max > 1) {
         await exitFlow('Quedan 0 personas además del bot en la llamada');
+        return;
+      }
+
+      // Regla dura: el bot nunca se queda 1 a 1 (bot + una sola persona más,
+      // sea quien sea) — no es una decisión del juez, es una condición que
+      // "no puede pasar nunca". Igual que el caso trivial de arriba, exige
+      // haber visto más gente antes para no disparar apenas se joinea (si la
+      // clase todavía no arrancó del todo y por ahora hay una sola persona).
+      if (count === 2 && stats.max > 2) {
+        await exitFlow('Regla dura: bot 1 a 1 con una sola persona en la llamada');
         return;
       }
 
